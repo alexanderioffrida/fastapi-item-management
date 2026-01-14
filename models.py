@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class ItemBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100, description="Name of the item")
@@ -40,3 +40,20 @@ class ValidationErrorDetail(BaseModel):
 class ValidationErrorResponse(BaseModel):
     detail: str
     errors: list[ValidationErrorDetail]
+
+class PaginationParams(BaseModel):
+    skip: int = Field(default=0, ge=0, description="Number of items to skip")
+    limit: int = Field(default=10, ge=1, le=100, description="Number of items to return")
+
+class ItemFilters(BaseModel):
+    name: str | None = Field(None, description="Filter items by name (case-insensitive contains)")
+    min_price: float | None = Field(None, ge=0, description="Minimum price filter")
+    max_price: float | None = Field(None, ge=0, description="Maximum price filter")
+    in_stock: bool | None = Field(None, description="Filter items by stock status")
+
+    @model_validator(mode="after")
+    def validate_price_range(self):
+        if self.min_price is not None and self.max_price is not None:
+            if self.min_price > self.max_price:
+                raise ValueError("Minimum price must be less than or equal to maximum price")
+        return self

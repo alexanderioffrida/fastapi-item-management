@@ -2,11 +2,19 @@ import logging
 import threading
 import traceback
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from models import Item, ItemCreate, ItemUpdate, ItemResponse, ErrorResponse
+from models import (
+    Item,
+    ItemCreate,
+    ItemUpdate,
+    ItemResponse,
+    ErrorResponse,
+    PaginationParams,
+    ItemFilters,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -50,6 +58,29 @@ def get_next_id() -> int:
         _next_id += 1
     return current_id
 
+
+# ================================================================
+# Dependency Functions
+# ================================================================
+
+def get_pagination(
+    skip: int = Query(default=0, ge=0, description="Number of items to skip"),
+    limit: int = Query(default=10, ge=1, le=100, description="Number of items to return"),
+) -> PaginationParams:
+    """Parse pagination query parameters."""
+    return PaginationParams(skip=skip, limit=limit)
+
+
+def get_item_filters(
+    name: str | None = Query(default=None, description="Filter by name (case-insensitive)"),
+    min_price: float | None = Query(default=None, ge=0, description="Minimum price"),
+    max_price: float | None = Query(default=None, ge=0, description="Maximum price"),
+    in_stock: bool | None = Query(default=None, description="Filter by stock availability"),
+) -> ItemFilters:
+    """Parse item filter query parameters."""
+    return ItemFilters(name=name, min_price=min_price, max_price=max_price, in_stock=in_stock)
+
+
 @app.get("/", tags=["Root"])
 async def root():
     """
@@ -71,10 +102,27 @@ async def root():
     status_code=status.HTTP_200_OK,
     tags=["Items"],
     summary="Get all items",
-    description="Retrieve a list of all items in the database",
+    description="Retrieve items with optional filtering and pagination",
 )
-async def get_items():
-    return list(items_db.values())
+async def get_items(
+    pagination: PaginationParams = Depends(get_pagination),
+    filters: ItemFilters = Depends(get_item_filters),
+):
+    # Start with all items
+    items = list(items_db.values())
+
+    # Apply filters
+    if filters.name:
+        items = [i for i in items if filters.name.lower() in i.name.lower()]
+    if filters.min_price is not None:
+        items = [i for i in items if i.price >= filters.min_price]
+    if filters.max_price is not None:
+        items = [i for i in items if i.price <= filters.max_price]
+    if filters.in_stock is not None:
+        items = [i for i in items if (i.quantity > 0) == filters.in_stock]
+
+    # Apply pagination
+    return items[pagination.skip : pagination.skip + pagination.limit]
 
 @app.get(
     "/items/{item_id}",
