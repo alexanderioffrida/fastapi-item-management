@@ -7,47 +7,67 @@ A production-ready REST API for managing items, built with FastAPI and modern Py
 - ✅ Full CRUD operations (Create, Read, Update, Delete)
 - ✅ Input validation with Pydantic
 - ✅ Auto-generated OpenAPI documentation
-- ✅ Comprehensive error handling
+- ✅ Comprehensive error handling with custom exceptions
 - ✅ Health check endpoint
 - ✅ Type hints throughout
+- ✅ Thread-safe ID generation
+- ✅ O(1) item lookups with dict-based storage
+- ✅ Structured logging
 
 ## Tech Stack
 
 - **Framework:** FastAPI 0.115.0
-- **Validation:** Pydantic 2.0+
+- **Validation:** Pydantic 2.10+
 - **Server:** Uvicorn
+- **Testing:** pytest, pytest-asyncio, httpx
 
 ## Getting Started
 
 ### Installation
 
-\`\`\`bash
+```bash
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
-\`\`\`
+```
 
 ### Run
 
-\`\`\`bash
+```bash
 uvicorn main:app --reload
-\`\`\`
+```
+
+### Run Tests
+
+```bash
+pytest
+```
 
 ### API Documentation
 
-Visit http://localhost:8000/docs for interactive API documentation.
+Visit http://localhost:8000/docs for interactive Swagger UI documentation.
 
 ## API Endpoints
 
-- `GET /items` - List all items
-- `POST /items` - Create new item
-- `GET /items/{id}` - Get single item
-- `DELETE /items/{id}` - Delete item
-- `GET /health` - Health check
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Welcome message and API info |
+| `GET` | `/items` | List all items |
+| `GET` | `/items/{id}` | Get item by ID |
+| `POST` | `/items` | Create new item |
+| `PUT` | `/items/{id}` | Replace item (full update) |
+| `PATCH` | `/items/{id}` | Update item (partial update) |
+| `DELETE` | `/items/{id}` | Delete item by ID |
+| `GET` | `/health` | Health check |
 
 ## Project Status
 
-🚧 **Week 1 of 6-week ML Engineering Roadmap** 🚧
+🚧 **Week 1 of 6-week ML Engineering Interview Prep** 🚧
 
-Part of my journey to become a production-r. Follow along as I build:
+Part of my journey to become a production-ready ML engineer. Follow along as I build:
 - Week 1: FastAPI + Docker + AWS deployment
 - Week 2: Multi-model recommendation system
 - Week 3-6: Production features, databases, and more!
