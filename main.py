@@ -1,6 +1,34 @@
+import logging
+import threading
+import traceback
+
 from fastapi import FastAPI, HTTPException, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from models import Item, ItemCreate, ItemResponse, ErrorResponse
+
+from models import Item, ItemCreate, ItemUpdate, ItemResponse, ErrorResponse
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ================================================================
+# Custom Exception Classes
+# ================================================================
+
+class ItemNotFoundError(Exception):
+    def __init__(self, item_id: int):
+        self.item_id = item_id
+        super().__init__(f"Item with ID {item_id} not found")
+
+
+class DatabaseError(Exception):
+    pass
+
+
+# ================================================================
+# Application Setup
+# ================================================================
 
 app = FastAPI(
     title="Item Management API",
@@ -8,9 +36,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# In-memory storage (replace with a database in production)
-items_db: list[Item] = []
-next_id = 1
+# Thread-safe in-memory storage (replace with a database in production)
+items_db: dict[int, Item] = {}
+_id_lock = threading.Lock()
+_next_id = 1
+
+
+def get_next_id() -> int:
+    """Thread-safe ID generation."""
+    global _next_id
+    with _id_lock:
+        current_id = _next_id
+        _next_id += 1
+    return current_id
 
 @app.get("/", tags=["Root"])
 async def root():
@@ -36,7 +74,20 @@ async def root():
     description="Retrieve a list of all items in the database",
 )
 async def get_items():
-    return items_db
+    return list(items_db.values())
+
+@app.get(
+    "/items/{item_id}",
+    response_model=Item,
+    status_code=status.HTTP_200_OK,
+    tags=["Items"],
+    summary="Get an item by ID",
+    description="Retrieve an item from the database by its ID",
+)
+async def get_item(item_id: int):
+    if item_id not in items_db:
+        raise ItemNotFoundError(item_id)
+    return items_db[item_id]
 
 @app.post(
     "/items",
@@ -47,11 +98,39 @@ async def get_items():
     description="Create a new item in the database",
 )
 async def create_item(item: ItemCreate):
-    global next_id
-    new_item = Item(id=next_id, **item.model_dump())
-    items_db.append(new_item)
-    next_id += 1
+    item_id = get_next_id()
+    new_item = Item(id=item_id, **item.model_dump())
+    items_db[item_id] = new_item
     return new_item
+
+@app.put(
+    "/items/{item_id}",
+    response_model=Item,
+    status_code=status.HTTP_200_OK,
+    tags=["Items"],
+    summary="Replace an item by ID",
+    description="Replace an item in the database by its ID",
+)
+async def replace_item(item_id: int, item: ItemCreate):
+    if item_id not in items_db:
+        raise ItemNotFoundError(item_id)
+    items_db[item_id] = Item(id=item_id, **item.model_dump())
+    return items_db[item_id]
+
+@app.patch(
+    "/items/{item_id}",
+    response_model=Item,
+    status_code=status.HTTP_200_OK,
+    tags=["Items"],
+    summary="Partially update an item by ID",
+    description="Update specific fields of an item in the database by its ID",
+)
+async def update_item(item_id: int, item: ItemUpdate):
+    if item_id not in items_db:
+        raise ItemNotFoundError(item_id)
+    updated_item = items_db[item_id].model_copy(update=item.model_dump(exclude_unset=True))
+    items_db[item_id] = updated_item
+    return updated_item
 
 @app.delete(
     "/items/{item_id}",
@@ -68,17 +147,13 @@ async def create_item(item: ItemCreate):
     }
 )
 async def delete_item(item_id: int):
-    for index, item in enumerate(items_db):
-        if item.id == item_id:
-            deleted_item = items_db.pop(index)
-            return ItemResponse(
-                message=f"Item with ID {item_id} has been deleted successfully",
-                item=deleted_item
-            )
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Item with ID {item_id} not found"
+    if item_id not in items_db:
+        raise ItemNotFoundError(item_id)
+    
+    deleted_item = items_db.pop(item_id)
+    return ItemResponse(
+        message=f"Item with ID {item_id} has been deleted successfully",
+        item=deleted_item
     )
 
 @app.get("/health", tags=["Health"])
@@ -88,12 +163,65 @@ async def health_check():
         "items_count": len(items_db),
     }
 
+# ================================================================
+# Exception Handlers
+# ================================================================
+
+@app.exception_handler(ItemNotFoundError)
+async def item_not_found_handler(request, exc: ItemNotFoundError):
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={
+            "detail": str(exc),
+            "item_id": exc.item_id,
+            "error_type": "item_not_found",
+        }
+    )
+
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
+async def http_exception_handler(request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={
             "detail": exc.detail,
+            "status_code": exc.status_code,
+            "error_type": "http_error",
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    errors = exc.errors()
+
+    formatted_errors = []
+    for error in errors:
+        formatted_errors.append({
+            "field": " -> ".join(str(loc) for loc in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"],
+            "input": error.get("input"),
+        })
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "detail": "Validation error occurred",
+            "error_type": "validation_error",
+            "errors": formatted_errors,
+        }
+    )
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request, exc: Exception):
+    error_traceback = traceback.format_exc()
+    logger.error(f"Internal Server Error: {error_traceback}")
+
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "An internal server error occurred",
+            "error_type": "internal_server_error",
+            "message": "Please contact support if the problem persists",
         }
     )
 
