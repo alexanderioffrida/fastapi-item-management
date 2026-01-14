@@ -78,7 +78,13 @@ def get_item_filters(
     in_stock: bool | None = Query(default=None, description="Filter by stock availability"),
 ) -> ItemFilters:
     """Parse item filter query parameters."""
-    return ItemFilters(name=name, min_price=min_price, max_price=max_price, in_stock=in_stock)
+    try:
+        return ItemFilters(name=name, min_price=min_price, max_price=max_price, in_stock=in_stock)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e),
+        )
 
 
 @app.get("/", tags=["Root"])

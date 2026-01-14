@@ -5,6 +5,7 @@ A production-ready REST API for managing items, built with FastAPI and modern Py
 ## Features
 
 - ✅ Full CRUD operations (Create, Read, Update, Delete)
+- ✅ Pagination and filtering support
 - ✅ Input validation with Pydantic
 - ✅ Auto-generated OpenAPI documentation
 - ✅ Comprehensive error handling with custom exceptions
@@ -55,13 +56,29 @@ Visit http://localhost:8000/docs for interactive Swagger UI documentation.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/` | Welcome message and API info |
-| `GET` | `/items` | List all items |
+| `GET` | `/items` | List items (with filtering & pagination) |
 | `GET` | `/items/{id}` | Get item by ID |
 | `POST` | `/items` | Create new item |
 | `PUT` | `/items/{id}` | Replace item (full update) |
 | `PATCH` | `/items/{id}` | Update item (partial update) |
 | `DELETE` | `/items/{id}` | Delete item by ID |
 | `GET` | `/health` | Health check |
+
+### Query Parameters for `GET /items`
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `skip` | int | 0 | Number of items to skip (pagination offset) |
+| `limit` | int | 10 | Max items to return (1-100) |
+| `name` | string | — | Filter by name (case-insensitive) |
+| `min_price` | float | — | Filter by minimum price |
+| `max_price` | float | — | Filter by maximum price |
+| `in_stock` | bool | — | Filter by stock availability |
+
+**Example:**
+```
+GET /items?min_price=10&max_price=50&skip=0&limit=5
+```
 
 ## Project Status
 
