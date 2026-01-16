@@ -21,11 +21,25 @@ A production-ready REST API for managing items, built with FastAPI and modern Py
 - **Validation:** Pydantic 2.10+
 - **Server:** Uvicorn
 - **Containerization:** Docker (Alpine-based, multi-stage build)
+- **Orchestration:** Docker Compose (API + PostgreSQL + Redis)
 - **Testing:** pytest, pytest-asyncio, httpx
 
 ## Getting Started
 
-### Option 1: Docker (Recommended)
+### Option 1: Docker Compose (Recommended)
+
+```bash
+# Start all services (API + PostgreSQL + Redis)
+docker compose up
+
+# Or run in background
+docker compose up -d
+
+# Stop all services
+docker compose down
+```
+
+### Option 2: Docker (Single Container)
 
 ```bash
 # Pull from Docker Hub
@@ -80,6 +94,8 @@ Visit http://localhost:8000/docs for interactive Swagger UI documentation.
 - **Health check** — Built-in `/health` endpoint monitoring
 - **Pinned base image** — Digest-pinned for reproducible builds
 - **Optimized layer caching** — Dependencies cached separately from code
+- **Docker Compose** — Multi-container orchestration with PostgreSQL and Redis
+- **Development overrides** — Hot-reload support via `docker-compose.override.yml`
 
 ## API Endpoints
 

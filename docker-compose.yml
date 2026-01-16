@@ -1,0 +1,59 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+    # A DSN is a Data Source Name, a string that identifies a database. db is the hostname, 5432 is the port (PostgreSQL's default port), itemsdb is the database name.
+    # It is effectively the following: postgresql://<username>:<password>@<hostname>:<port>/<database_name>
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/itemsdb
+    # Redis is a key-value store, and from this, we see the hostname, port, and database number; Redis has 16 DBs, 0-15.
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+    # this is a healthcheck for the API, and it's the same as running in a shell: python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')".
+    # note that -c is used to run the command as a string, and not as a file.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  db:
+    # postgres:16-alpine is the image name, and it's a lightweight version of PostgreSQL (built on Alpine Linux, which is smaller: ~80MB vs 400MB for Debian).
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+    # in production, this should be secret, but for now in local development, we'll use a plaintext password.
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=itemsdb
+    volumes:
+    # this is a volume that will persist the database data across container restarts.
+    # postgres_data is a named volume Docker manages.
+    # /var/lib/postgresql/data is the default location for PostgreSQL data.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+    # pg_isready is a command that checks if the PostgreSQL server is ready to accept connections.
+    # -U postgres is the check against the postgres user.
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+    # this is a volume that will persist the Redis data across container restarts.
+    # redis_data is a named volume Docker manages.
+    # /data is the default location for Redis data.
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
