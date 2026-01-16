@@ -40,7 +40,7 @@ class DatabaseError(Exception):
 
 app = FastAPI(
     title="Item Management API",
-    description="A simple FastAPI application for managing items",
+    description="A simple FastAPI application for managing items with CRUD operations",
     version="1.0.0",
 )
 

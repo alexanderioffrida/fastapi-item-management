@@ -20,22 +20,43 @@ A production-ready REST API for managing items, built with FastAPI and modern Py
 - **Framework:** FastAPI 0.115.0
 - **Validation:** Pydantic 2.10+
 - **Server:** Uvicorn
+- **Containerization:** Docker (Alpine-based, multi-stage build)
 - **Testing:** pytest, pytest-asyncio, httpx
 
 ## Getting Started
 
-### Installation
+### Option 1: Docker (Recommended)
+
+```bash
+# Pull from Docker Hub
+docker pull alexanderioffrida/fastapi-items-api:1.0.0
+
+# Run the container
+docker run -d -p 8000:8000 alexanderioffrida/fastapi-items-api:1.0.0
+```
+
+Or build locally:
+
+```bash
+# Build the image
+docker build -t fastapi-items-api .
+
+# Run the container
+docker run -d -p 8000:8000 fastapi-items-api
+```
+
+### Option 2: Local Development
 
 ```bash
 # Create virtual environment
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (includes dev/test tools)
+pip install -r requirements-dev.txt
 ```
 
-### Run
+### Run Locally
 
 ```bash
 uvicorn main:app --reload
@@ -50,6 +71,15 @@ pytest
 ### API Documentation
 
 Visit http://localhost:8000/docs for interactive Swagger UI documentation.
+
+## Docker Features
+
+- **Multi-stage build** — Separate builder and runtime stages for smaller images
+- **Alpine-based** — Minimal footprint (~60MB runtime layer)
+- **Non-root user** — Runs as `appuser` for security
+- **Health check** — Built-in `/health` endpoint monitoring
+- **Pinned base image** — Digest-pinned for reproducible builds
+- **Optimized layer caching** — Dependencies cached separately from code
 
 ## API Endpoints
 
